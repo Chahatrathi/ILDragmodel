@@ -4,24 +4,24 @@ from ingestion import main as run_ingestion
 from historybased import ask_question
 
 st.set_page_config(page_title="ILD Specialist Bot", page_icon="🫁")
-st.title("🫁 ILD RAG Expert")
+st.title("🫁 ILD RAG Expert (Gemini Powered)")
 
 with st.sidebar:
     st.header("Upload Research")
     uploaded_files = st.file_uploader("Upload PDFs", type="pdf", accept_multiple_files=True)
-    if st.button("Build/Update Knowledge Base"):
+    if st.button("Build Knowledge Base"):
         if uploaded_files:
             if not os.path.exists("./documents"): os.makedirs("./documents")
             for f in uploaded_files:
                 with open(os.path.join("./documents", f.name), "wb") as buffer:
                     buffer.write(f.getbuffer())
-            with st.spinner("Indexing..."):
+            with st.spinner("Gemini is indexing your files..."):
                 run_ingestion()
         else:
-            st.warning("Upload files first.")
+            st.warning("Please upload PDFs first.")
 
 if not os.path.exists("./chroma_db"):
-    st.info("👈 Please upload and process PDFs in the sidebar to start.")
+    st.info("👈 Please upload PDFs in the sidebar and click 'Build Knowledge Base'.")
     st.stop()
 
 if "messages" not in st.session_state:
@@ -33,8 +33,11 @@ for msg in st.session_state.messages:
 if prompt := st.chat_input("Ask about ILD..."):
     st.chat_message("user").markdown(prompt)
     with st.chat_message("assistant"):
-        with st.spinner("Analyzing..."):
-            answer = ask_question(prompt)
-            st.markdown(answer)
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    st.session_state.messages.append({"role": "assistant", "content": answer})
+        with st.spinner("Gemini is analyzing..."):
+            try:
+                answer = ask_question(prompt)
+                st.markdown(answer)
+                st.session_state.messages.append({"role": "user", "content": prompt})
+                st.session_state.messages.append({"role": "assistant", "content": answer})
+            except Exception as e:
+                st.error(f"Error: {e}")
