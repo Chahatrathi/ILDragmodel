@@ -1,24 +1,20 @@
 import streamlit as st
 import os
-
-# --- IMPORT YOUR MODULES ---
-from ingestion import main as run_ingestion 
-from retrieval import retrieve_docs
-from historybased import ask_question as get_answer
+from ingestion import main as run_ingestion
+from historybased import ask_question
 
 st.set_page_config(page_title="ILD Specialist Bot", page_icon="🫁")
-st.title("🫁 ILD RAG Chatbot")
+st.title("🫁 ILD RAG Expert")
 
-# --- STARTUP: ENSURE DB EXISTS ---
+# Startup: Check if data is processed
 @st.cache_resource
-def startup():
+def check_db():
     if not os.path.exists("./chroma_db"):
-        st.info("Building knowledge base...")
-        run_ingestion()
+        with st.spinner("Processing documents for the first time..."):
+            run_ingestion()
     return True
 
-if startup():
-    # Chat History Setup
+if check_db():
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
@@ -26,19 +22,13 @@ if startup():
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # User Input
-    if prompt := st.chat_input("Ask about ILD..."):
+    if prompt := st.chat_input("Ask a question about ILD..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            # Use the new retrieve_docs function
-            with st.expander("Show relevant document snippets"):
-                context = retrieve_docs(prompt)
-                st.write(context)
-            
-            # Get LLM Answer
-            response = get_answer(prompt)
-            st.markdown(response)
-            st.session_state.messages.append({"role": "assistant", "content": response})
+            with st.spinner("Generating answer..."):
+                answer = ask_question(prompt)
+                st.markdown(answer)
+                st.session_state.messages.append({"role": "assistant", "content": answer})
