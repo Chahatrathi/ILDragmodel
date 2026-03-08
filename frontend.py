@@ -4,7 +4,7 @@ from ingestion import main as run_ingestion
 from historybased import ask_question
 
 st.set_page_config(page_title="ILD Specialist Bot", page_icon="🫁")
-st.title("🫁 ILD RAG Expert (Gemini Edition)")
+st.title("🫁 ILD RAG Expert")
 
 with st.sidebar:
     st.header("1. Upload Documents")
