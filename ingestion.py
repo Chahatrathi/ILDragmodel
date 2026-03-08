@@ -8,43 +8,53 @@ from langchain_chroma import Chroma
 
 def main():
     docs_path = "./documents"
-    if not os.path.exists(docs_path): os.makedirs(docs_path)
+    if not os.path.exists(docs_path):
+        os.makedirs(docs_path)
 
     loader = DirectoryLoader(docs_path, glob="**/*.pdf", loader_cls=PyPDFLoader)
-    docs = loader.load()
+    
+    try:
+        docs = loader.load()
+    except Exception as e:
+        st.error(f"Error reading PDFs: {e}")
+        return
 
     if not docs:
-        st.info("The documents folder is empty. Please upload PDFs via the sidebar.")
+        st.info("The documents folder is empty. Upload PDFs in the sidebar.")
         return 
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = text_splitter.split_documents(docs)
-
-    # 🛑 DELETE old DB to avoid dimension errors
-    if os.path.exists("./chroma_db"):
-        import shutil
-        shutil.rmtree("./chroma_db")
 
     embeddings = GoogleGenerativeAIEmbeddings(
         model="models/gemini-embedding-001",
         google_api_key=st.secrets["GOOGLE_API_KEY"]
     )
 
-    # Throttling to stay under Free Tier limits
-    batch_size = 15
+    # Use /tmp to ensure the database is WRITABLE on Streamlit Cloud
+    persist_dir = "/tmp/chroma_db"
+
+    # Process in batches to stay under the 100 requests-per-minute limit
+    batch_size = 15 
     vectorstore = None
-    progress = st.progress(0)
+    progress_bar = st.progress(0)
 
     try:
         for i in range(0, len(splits), batch_size):
             batch = splits[i:i + batch_size]
             if vectorstore is None:
-                vectorstore = Chroma.from_documents(documents=batch, embedding=embeddings, persist_directory="./chroma_db")
+                vectorstore = Chroma.from_documents(
+                    documents=batch, 
+                    embedding=embeddings, 
+                    persist_directory=persist_dir
+                )
             else:
                 vectorstore.add_documents(batch)
-            progress.progress(min((i + batch_size) / len(splits), 1.0))
-            time.sleep(10) # Safe for Free Tier
-        st.success("Knowledge base ready!")
+            
+            progress_bar.progress(min((i + batch_size) / len(splits), 1.0))
+            time.sleep(10) # 10-second pause to avoid 429 errors
+
+        st.success("Knowledge base built successfully in writable storage!")
     except Exception as e:
         st.error(f"Vector store error: {e}")
 
