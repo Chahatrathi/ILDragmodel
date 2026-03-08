@@ -1,7 +1,7 @@
 streamlit
 langchain>=0.3.0
 langchain-classic
-langchain-google-genai
+langchain-google-genai>=2.0.0
 langchain-chroma
 langchain-community
 pypdf
