@@ -8,65 +8,43 @@ from langchain_chroma import Chroma
 
 def main():
     docs_path = "./documents"
-    if not os.path.exists(docs_path):
-        os.makedirs(docs_path)
+    if not os.path.exists(docs_path): os.makedirs(docs_path)
 
     loader = DirectoryLoader(docs_path, glob="**/*.pdf", loader_cls=PyPDFLoader)
-    
-    try:
-        docs = loader.load()
-    except Exception as e:
-        st.error(f"Error reading PDF files: {e}")
-        return
+    docs = loader.load()
 
     if not docs:
         st.info("The documents folder is empty. Please upload PDFs via the sidebar.")
         return 
 
-    # 1. Split Text
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = text_splitter.split_documents(docs)
 
-    # 2. Setup Embeddings (Gemini Stable 2026 Model)
+    # 🛑 DELETE old DB to avoid dimension errors
+    if os.path.exists("./chroma_db"):
+        import shutil
+        shutil.rmtree("./chroma_db")
+
     embeddings = GoogleGenerativeAIEmbeddings(
         model="models/gemini-embedding-001",
         google_api_key=st.secrets["GOOGLE_API_KEY"]
     )
 
-    # 3. Batch Processing to stay under Free Tier Rate Limits (429)
-    # We process 15 chunks at a time, then wait 10 seconds.
-    batch_size = 15 
+    # Throttling to stay under Free Tier limits
+    batch_size = 15
     vectorstore = None
-    
-    progress_bar = st.progress(0)
-    status_text = st.empty()
+    progress = st.progress(0)
 
     try:
         for i in range(0, len(splits), batch_size):
             batch = splits[i:i + batch_size]
-            status_text.text(f"Processing chunks {i} to {min(i + batch_size, len(splits))} of {len(splits)}...")
-            
             if vectorstore is None:
-                # First batch: Initialize the Chroma database
-                vectorstore = Chroma.from_documents(
-                    documents=batch,
-                    embedding=embeddings,
-                    persist_directory="./chroma_db"
-                )
+                vectorstore = Chroma.from_documents(documents=batch, embedding=embeddings, persist_directory="./chroma_db")
             else:
-                # Subsequent batches: Add to existing database
                 vectorstore.add_documents(batch)
-            
-            # Update UI progress
-            progress_bar.progress(min((i + batch_size) / len(splits), 1.0))
-            
-            # 🛑 CRITICAL: The "Breath" - Wait to avoid hitting the RPM limit
-            # 10 seconds is safe for the current 2026 free tier quotas
-            time.sleep(10) 
-
-        st.success(f"Success! Knowledge base built with {len(splits)} chunks.")
-        status_text.empty()
-        
+            progress.progress(min((i + batch_size) / len(splits), 1.0))
+            time.sleep(10) # Safe for Free Tier
+        st.success("Knowledge base ready!")
     except Exception as e:
         st.error(f"Vector store error: {e}")
 
