@@ -1,5 +1,5 @@
 import streamlit as st
-from your_rag_script import get_response # Import your RAG function
+from historybased import get_response # Import your RAG function
 
 st.title("My RAG Chatbot")
 
