@@ -11,52 +11,38 @@ def main():
     if not os.path.exists("./documents"): os.makedirs("./documents")
 
     loader = DirectoryLoader("./documents", glob="**/*.pdf", loader_cls=PyPDFLoader)
-    
-    try:
-        docs = loader.load()
-    except Exception as e:
-        st.error(f"Error loading PDFs: {e}")
-        return
+    docs = loader.load()
 
-    # 1. Clean and Split
+    # Clean and Split
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    raw_splits = text_splitter.split_documents(docs)
-    
-    # 2. Filter out empty or extremely short chunks that confuse the model
-    splits = [s for s in raw_splits if len(s.page_content.strip()) > 10]
+    splits = [s for s in text_splitter.split_documents(docs) if len(s.page_content.strip()) > 10]
 
     embeddings = GoogleGenerativeAIEmbeddings(
         model="models/gemini-embedding-001",
         google_api_key=st.secrets["GOOGLE_API_KEY"]
     )
 
-    batch_size = 10 # Smaller batches are safer for 500 errors
+    # 🛑 Clear old DB to prevent dimension mismatch
+    if os.path.exists(persist_dir):
+        import shutil
+        shutil.rmtree(persist_dir)
+
+    batch_size = 10
     vectorstore = None
-    progress_bar = st.progress(0)
+    progress = st.progress(0)
 
     try:
         for i in range(0, len(splits), batch_size):
             batch = splits[i:i + batch_size]
-            try:
-                if vectorstore is None:
-                    vectorstore = Chroma.from_documents(
-                        documents=batch, 
-                        embedding=embeddings, 
-                        persist_directory=persist_dir
-                    )
-                else:
-                    vectorstore.add_documents(batch)
-            except Exception as batch_error:
-                # If a specific batch fails, we log it and keep going
-                st.warning(f"Skipping a small batch due to a server error. Continuing...")
-                continue
-            
-            progress_bar.progress(min((i + batch_size) / len(splits), 1.0))
-            time.sleep(8) 
-
-        st.success("Knowledge base built! (Some problematic chunks may have been skipped).")
+            if vectorstore is None:
+                vectorstore = Chroma.from_documents(documents=batch, embedding=embeddings, persist_directory=persist_dir)
+            else:
+                vectorstore.add_documents(batch)
+            progress.progress(min((i + batch_size) / len(splits), 1.0))
+            time.sleep(12) # Safe throttle for Free Tier
+        st.success("ILD Database Built!")
     except Exception as e:
-        st.error(f"Critical Vector Store Error: {e}")
+        st.error(f"Ingestion Error: {e}")
 
 if __name__ == "__main__":
     main()
