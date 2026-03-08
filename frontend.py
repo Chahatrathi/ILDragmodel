@@ -1,37 +1,53 @@
 import streamlit as st
 import os
+import shutil
 from ingestion import main as run_ingestion
 from historybased import ask_question
 
 st.set_page_config(page_title="ILD Specialist Bot", page_icon="🫁")
 st.title("🫁 ILD RAG Expert")
 
-# Initialize DB if it doesn't exist
-if not os.path.exists("./chroma_db"):
-    st.warning("Knowledge base not found. Initializing...")
-    run_ingestion()
-    st.rerun()
+# --- SIDEBAR FOR FILE MANAGEMENT ---
+with st.sidebar:
+    st.header("Document Management")
+    uploaded_files = st.file_uploader("Upload ILD PDFs", type="pdf", accept_multiple_files=True)
+    
+    if st.button("Process Documents"):
+        if uploaded_files:
+            # Save files to ./documents
+            if not os.path.exists("./documents"):
+                os.makedirs("./documents")
+            
+            for uploaded_file in uploaded_files:
+                with open(os.path.join("./documents", uploaded_file.name), "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+            
+            # Run Ingestion
+            with st.spinner("Indexing documents..."):
+                run_ingestion()
+                st.success("Database ready!")
+        else:
+            st.warning("Please upload files first.")
 
-# Initialize History
+# --- CHAT INTERFACE ---
+if not os.path.exists("./chroma_db"):
+    st.info("👋 Welcome! Please upload your ILD research PDFs in the sidebar to begin.")
+    st.stop()
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Show Chat
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# User Input
 if prompt := st.chat_input("Ask about ILD..."):
-    with st.chat_message("user"):
-        st.markdown(prompt)
+    st.chat_message("user").markdown(prompt)
     
-    # The historybased.py function now handles adding this to history internally
     with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
+        with st.spinner("Analyzing..."):
             answer = ask_question(prompt)
             st.markdown(answer)
     
-    # Save to history AFTER the UI renders to keep it clean
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.session_state.messages.append({"role": "assistant", "content": answer})
