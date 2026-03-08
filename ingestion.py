@@ -27,15 +27,15 @@ def main():
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = text_splitter.split_documents(docs)
 
-    # 2. Setup Embeddings
+    # 2. Setup Embeddings (Gemini Stable 2026 Model)
     embeddings = GoogleGenerativeAIEmbeddings(
         model="models/gemini-embedding-001",
         google_api_key=st.secrets["GOOGLE_API_KEY"]
     )
 
-    # 3. Batch Processing to avoid Rate Limits (429)
-    # We process 20 chunks at a time, then wait 5 seconds.
-    batch_size = 20 
+    # 3. Batch Processing to stay under Free Tier Rate Limits (429)
+    # We process 15 chunks at a time, then wait 10 seconds.
+    batch_size = 15 
     vectorstore = None
     
     progress_bar = st.progress(0)
@@ -57,11 +57,12 @@ def main():
                 # Subsequent batches: Add to existing database
                 vectorstore.add_documents(batch)
             
-            # Update progress
+            # Update UI progress
             progress_bar.progress(min((i + batch_size) / len(splits), 1.0))
             
-            # 🛑 CRITICAL: The "Breath" - Wait to avoid hitting the 100 RPM limit
-            time.sleep(5) 
+            # 🛑 CRITICAL: The "Breath" - Wait to avoid hitting the RPM limit
+            # 10 seconds is safe for the current 2026 free tier quotas
+            time.sleep(10) 
 
         st.success(f"Success! Knowledge base built with {len(splits)} chunks.")
         status_text.empty()
