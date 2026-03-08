@@ -7,7 +7,7 @@ st.set_page_config(page_title="ILD Specialist Bot", page_icon="🫁")
 st.title("🫁 ILD RAG Expert")
 
 with st.sidebar:
-    st.header("1. Upload Documents")
+    st.header("Upload Research")
     uploaded_files = st.file_uploader("Upload PDFs", type="pdf", accept_multiple_files=True)
     if st.button("Build Knowledge Base"):
         if uploaded_files:
@@ -15,23 +15,23 @@ with st.sidebar:
             for f in uploaded_files:
                 with open(os.path.join("./documents", f.name), "wb") as buffer:
                     buffer.write(f.getbuffer())
-            with st.spinner("Indexing your files..."):
+            with st.spinner("Processing (this takes time due to rate limits)..."):
                 run_ingestion()
         else:
-            st.warning("Upload files first!")
+            st.warning("Please upload PDFs first.")
 
-if not os.path.exists("./chroma_db"):
-    st.info("👈 Please upload PDFs in the sidebar and click 'Build Knowledge Base'.")
+# Check for DB in the writable /tmp directory
+if not os.path.exists("/tmp/chroma_db"):
+    st.info("👈 Please upload PDFs and click 'Build Knowledge Base'.")
     st.stop()
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]): 
-        st.markdown(msg["content"])
+    with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
-if prompt := st.chat_input("Ask about ILD..."):
+if prompt := st.chat_input("Ask a question about ILD..."):
     st.chat_message("user").markdown(prompt)
     with st.chat_message("assistant"):
         with st.spinner("Analyzing..."):
