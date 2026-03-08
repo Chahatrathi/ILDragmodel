@@ -26,18 +26,19 @@ def main():
     splits = text_splitter.split_documents(docs)
 
     try:
-        # Using text-embedding-004 (Stable 2026 model)
+        # Use the unified stable model: gemini-embedding-001
         embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004",
+            model="models/gemini-embedding-001",
             google_api_key=st.secrets["GOOGLE_API_KEY"]
         )
         
+        # Clear old DB if it exists to avoid dimension mismatch
         vectorstore = Chroma.from_documents(
             documents=splits, 
             embedding=embeddings, 
             persist_directory="./chroma_db"
         )
-        st.success(f"Knowledge base updated! {len(docs)} documents processed.")
+        st.success(f"Knowledge base updated! Processed {len(docs)} documents.")
     except Exception as e:
         st.error(f"Vector store error: {e}")
 
