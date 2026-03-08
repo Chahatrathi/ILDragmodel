@@ -1,12 +1,13 @@
 import streamlit as st
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_chroma import Chroma
-from langchain.chains.history_aware_retriever import create_history_aware_retriever
-from langchain.chains.retrieval import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
+
+# UPDATED: Point to langchain_classic for legacy chains
+from langchain_classic.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
-
 def ask_question(user_query):
     # 1. Setup Gemini Models
     llm = ChatGoogleGenerativeAI(
