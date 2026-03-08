@@ -11,19 +11,24 @@ def main():
         os.makedirs(docs_path)
 
     loader = DirectoryLoader(docs_path, glob="**/*.pdf", loader_cls=PyPDFLoader)
-    docs = loader.load()
+    
+    try:
+        docs = loader.load()
+    except Exception as e:
+        st.error(f"Error reading PDF files: {e}")
+        return
 
     if not docs:
-        st.info("Please upload PDFs via the sidebar.")
+        st.info("The documents folder is empty. Please upload PDFs via the sidebar.")
         return 
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = text_splitter.split_documents(docs)
 
     try:
-        # Use Google Gemini Embeddings (Free Tier)
+        # Using text-embedding-004 (Stable 2026 model)
         embeddings = GoogleGenerativeAIEmbeddings(
-            model="models/embedding-001",
+            model="models/text-embedding-004",
             google_api_key=st.secrets["GOOGLE_API_KEY"]
         )
         
@@ -32,7 +37,7 @@ def main():
             embedding=embeddings, 
             persist_directory="./chroma_db"
         )
-        st.success(f"Knowledge base updated with Gemini!")
+        st.success(f"Knowledge base updated! {len(docs)} documents processed.")
     except Exception as e:
         st.error(f"Vector store error: {e}")
 
